@@ -119,6 +119,18 @@ npm run dev
    ```
    然后在 `docker compose up` 时使用 `docker compose --env-file .env up --build` 看 Docker Compose 文档。
 
+## 自动 CI/CD 镜像构建
+
+仓库包含 GitHub Actions 工作流，路径 `.github/workflows/docker-build.yml`。
+- **触发器**：`main` 分支每次 push 以及手动触发（`workflow_dispatch`）。
+- **操作**：
+  1. 使用 `Dockerfile.backend` 构建后端镜像，推送到 `ghcr.io/<your-org>/resume-backend:latest`
+  2. 使用 `Dockerfile.frontend` 构建前端镜像，推送到 `ghcr.io/<your-org>/resume-frontend:latest`
+- **凭据**：使用内置 `${{ secrets.GITHUB_TOKEN }}` 登录 GitHub Container Registry，因此无需额外定义凭据，只要仓库启用了 Packages即可。
+- **自定义**：如需推送到其他注册表，可调整该 workflow 中的 `registry`、`tags` 和 `docker/login-action` 参数，或改为使用 `secrets.DOCKER_USERNAME`/`secrets.DOCKER_PASSWORD`。
+
+生成的镜像可以直接在生产环境中拉取并在 `docker-compose.yml` 中指定 `image` 甚至替代本地构建步骤。
+
 ## API 接口
 
 ### 主要接口
