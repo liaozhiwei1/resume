@@ -95,7 +95,7 @@ npm run dev
    ```
    `uploads` 用于保存已上传的简历文件，`resume_app.db` 是 SQLite 数据库文件。
 
-2. 构建并启动容器：
+2. 构建并启动容器（确保前端镜像在构建时把 `VITE_BACKEND_URL` 写入 `env.production`，已经在 `docker-compose.yml` 中通过 `build.args` 指向 `https://resume-backend.292450.xyz`，不要跳过 `--build`）：
    ```bash
    docker compose up --build
    ```
