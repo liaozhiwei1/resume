@@ -161,7 +161,7 @@
         </template>
       </el-table-column>
       
-      <el-table-column label="操作" width="150" align="center" fixed="right">
+      <el-table-column label="操作" width="200" align="center" fixed="right">
         <template #default="{ row }">
           <div class="action-buttons">
             <el-button
@@ -183,6 +183,16 @@
             >
               <el-icon><Download /></el-icon>
               下载
+            </el-button>
+            <el-button
+                text
+                type="danger"
+                size="small"
+                @click="handleDelete(row)"
+                title="删除候选人"
+            >
+              <el-icon><Delete /></el-icon>
+              删除
             </el-button>
           </div>
         </template>
@@ -304,9 +314,10 @@
 <script>
 import { ref, computed, onMounted } from "vue";
 import { 
-  User, Search, RefreshRight, Message, Phone, School, Clock, Plus, View, Download, Loading
+  User, Search, RefreshRight, Message, Phone, School, Clock, Plus, View, Download, Loading, Delete
 } from '@element-plus/icons-vue';
-import { fetchCandidates, updateCandidateTags, fetchAllTags, downloadResume, getDocxHtmlPreview } from "../api";
+import { fetchCandidates, updateCandidateTags, fetchAllTags, downloadResume, getDocxHtmlPreview, deleteCandidate } from "../api";
+import { ElMessageBox } from "element-plus";
 import { ElMessage } from "element-plus";
 import UploadResume from "./UploadResume.vue";
 
@@ -324,6 +335,7 @@ export default {
     View,
     Download,
     Loading,
+    Delete,
     UploadResume
   },
   data() {
@@ -541,6 +553,41 @@ export default {
         ElMessage.success("正在下载简历...");
       } catch (e) {
         ElMessage.error("下载失败：" + (e.message || "未知错误"));
+      }
+    },
+    async handleDelete(row) {
+      try {
+        await ElMessageBox.confirm(
+          `确定要删除候选人"${row.name || '未命名'}"吗？此操作将同时删除关联的简历文件，且无法恢复。`,
+          '确认删除',
+          {
+            confirmButtonText: '确定删除',
+            cancelButtonText: '取消',
+            type: 'warning',
+            confirmButtonClass: 'el-button--danger',
+          }
+        );
+        
+        // 用户确认删除
+        this.loading = true;
+        try {
+          await deleteCandidate(row.id);
+          ElMessage.success({
+            message: '删除成功',
+            duration: 2000
+          });
+          // 刷新列表
+          await this.loadCandidates();
+        } catch (e) {
+          ElMessage.error(e.message || '删除失败');
+        } finally {
+          this.loading = false;
+        }
+      } catch (e) {
+        // 用户取消删除，不做任何操作
+        if (e !== 'cancel') {
+          console.error('删除操作出错:', e);
+        }
       }
     }
   },

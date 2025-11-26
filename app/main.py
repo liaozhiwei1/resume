@@ -429,3 +429,36 @@ def get_all_tags(db: Session = Depends(get_db)):
             tags = [t.strip() for t in candidate.tags.split(",") if t.strip()]
             all_tags.update(tags)
     return sorted(list(all_tags))
+
+
+@app.delete("/candidates/{candidate_id}", summary="删除候选人")
+def delete_candidate(candidate_id: int, db: Session = Depends(get_db)):
+    """删除候选人及其关联的简历文件"""
+    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+    if not candidate:
+        raise HTTPException(status_code=404, detail="候选人不存在")
+    
+    # 删除关联的简历文件（如果存在）
+    resume_path = candidate.resume_path
+    if resume_path and os.path.exists(resume_path):
+        try:
+            # 排除特殊标记路径（如 "(from_text)"）
+            if not resume_path.startswith("(") and not resume_path.endswith(")"):
+                os.remove(resume_path)
+                print(f"已删除简历文件: {resume_path}")
+        except Exception as e:
+            # 文件删除失败不影响数据库删除，只记录警告
+            print(f"删除简历文件失败: {e}")
+    
+    # 删除数据库记录
+    try:
+        db.delete(candidate)
+        db.commit()
+        return {
+            "message": "候选人删除成功",
+            "id": candidate_id
+        }
+    except Exception as e:
+        db.rollback()
+        error_msg = str(e).encode('utf-8', errors='replace').decode('utf-8')
+        raise HTTPException(status_code=500, detail=f"删除失败: {error_msg}")

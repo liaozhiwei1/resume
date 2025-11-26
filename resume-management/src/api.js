@@ -142,3 +142,21 @@ export async function getDocxHtmlPreview(candidateId) {
 
   return await response.json();
 }
+
+/**
+ * 删除候选人
+ * @param {number} candidateId - 候选人ID
+ * @returns {Promise<Object>} 删除结果
+ */
+export async function deleteCandidate(candidateId) {
+  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: '删除失败' }));
+    throw new Error(error.detail || '删除失败');
+  }
+
+  return await response.json();
+}
