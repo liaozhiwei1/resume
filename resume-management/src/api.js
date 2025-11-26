@@ -1,6 +1,6 @@
 // 开发环境默认通过 Vite 代理，生产环境可以根据环境变量定制后端地址
 const DEFAULT_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://resume-backend.292450.xyz';
-const API_BASE_URL = import.meta.env.DEV ? '' : DEFAULT_BACKEND_URL;
+const API_BASE_URL = 'https://resume-backend.292450.xyz';
 
 /**
  * 预览简历解析结果（不保存）
