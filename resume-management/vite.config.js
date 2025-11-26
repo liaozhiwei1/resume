@@ -9,30 +9,29 @@ export default defineConfig({
     port: 3000, // 你也可以改为 5173/其他端口
     proxy: {
       '/upload': {
-        target: 'http://localhost:5000',
+        target: 'https://resume-backend.292450.xyz',
         changeOrigin: true
       },
       '/preview': {
-        target: 'http://localhost:5000',
+        target: 'https://resume-backend.292450.xyz',
         changeOrigin: true
       },
       '/save': {
-        target: 'http://localhost:5000',
+        target: 'https://resume-backend.292450.xyz',
         changeOrigin: true
       },
       '/candidates': {
-        target: 'http://localhost:5000',
+        target: 'https://resume-backend.292450.xyz',
         changeOrigin: true
       },
       '/tags': {
-        target: 'http://localhost:5000',
+        target: 'https://resume-backend.292450.xyz',
         changeOrigin: true
       },
       '/upload-text': {
-        target: 'http://localhost:5000',
+        target: 'https://resume-backend.292450.xyz',
         changeOrigin: true
       }
     }
   }
 });
-
