@@ -121,15 +121,19 @@ npm run dev
 
 ## 自动 CI/CD 镜像构建
 
-仓库包含 GitHub Actions 工作流，路径 `.github/workflows/docker-build.yml`。
-- **触发器**：`main` 分支每次 push 以及手动触发（`workflow_dispatch`）。
+仓库包含 GitHub Actions 工作流 `.github/workflows/docker-build.yml`，默认推送到阿里云容器镜像服务（ACR）。
+- **触发器**：`main` 分支 push 以及手动触发（`workflow_dispatch`）。
 - **操作**：
-  1. 使用 `Dockerfile.backend` 构建后端镜像，推送到 `ghcr.io/<your-org>/resume-backend:latest`
-  2. 使用 `Dockerfile.frontend` 构建前端镜像，推送到 `ghcr.io/<your-org>/resume-frontend:latest`
-- **凭据**：使用内置 `${{ secrets.GITHUB_TOKEN }}` 登录 GitHub Container Registry，因此无需额外定义凭据，只要仓库启用了 Packages即可。
-- **自定义**：如需推送到其他注册表，可调整该 workflow 中的 `registry`、`tags` 和 `docker/login-action` 参数，或改为使用 `secrets.DOCKER_USERNAME`/`secrets.DOCKER_PASSWORD`。
+  1. 使用 `Dockerfile.backend` 构建后端镜像，推送到 `${ALIYUN_REGISTRY_URL}/resume-team/resume-backend:latest`
+  2. 使用 `Dockerfile.frontend` 构建前端镜像，推送到 `${ALIYUN_REGISTRY_URL}/resume-team/resume-frontend:latest`
+- **凭据**：需要在仓库 Secrets 中设置 `ALIYUN_REGISTRY_URL`（例：`registry.cn-hangzhou.aliyuncs.com`）、`ALIYUN_USERNAME`、`ALIYUN_PASSWORD`，Workflow 会用这些信息登录阿里湾的 registry。
+- **自定义命名空间**：`resume-team` 只是示例命名空间，若你在阿里云开启了不同的 registry namespace，把 workflow 中的 `env.BACKEND_IMAGE`/`env.FRONTEND_IMAGE` 替换成自己的路径。
+  - **加速镜像源**：默认 base image 已改为 `python:3.13-slim-bullseye`（官方仍提供）和 `node:20-alpine`。
+    如果你在自建阿里云镜像库遇到需要换镜像，可在 Secrets 中添加
+    `ALIYUN_PYTHON_IMAGE`（例如 `registry.cn-hangzhou.aliyuncs.com/aliyunpython/python:3.13-slim-bullseye`）
+    以及 `ALIYUN_NODE_IMAGE`（比如 `registry.cn-hangzhou.aliyuncs.com/aliyun-nodejs/node:20-alpine`）；Workflow 会把它们作为 build-arg 传入对应 Dockerfile。遇到 `docker.io/library/python:3.13-slim-buster: not found` 这类错误时只需指向可用的镜像即可。
 
-生成的镜像可以直接在生产环境中拉取并在 `docker-compose.yml` 中指定 `image` 甚至替代本地构建步骤。
+CI 构建出的镜像可以直接在生产环境拉取，并在 `docker-compose.yml` 中用 `image` 替代 `build`（也可在外部部署脚本里用 `docker pull` + `docker run`）。
 
 ## API 接口
 

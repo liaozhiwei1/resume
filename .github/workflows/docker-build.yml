@@ -6,12 +6,18 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  REGISTRY_URL: ${{ secrets.ALIYUN_REGISTRY_URL && secrets.ALIYUN_REGISTRY_URL || 'registry.cn-hangzhou.aliyuncs.com' }}
+  REGISTRY_USERNAME: ${{ secrets.ALIYUN_USERNAME }}
+  REGISTRY_PASSWORD: ${{ secrets.ALIYUN_PASSWORD }}
+  BACKEND_IMAGE: ${{ env.REGISTRY_URL }}/resume-team/resume-backend:latest
+  FRONTEND_IMAGE: ${{ env.REGISTRY_URL }}/resume-team/resume-frontend:latest
+  PYTHON_BASE_IMAGE: ${{ secrets.ALIYUN_PYTHON_IMAGE && secrets.ALIYUN_PYTHON_IMAGE || 'python:3.13-slim-buster' }}
+  NODE_BASE_IMAGE: ${{ secrets.ALIYUN_NODE_IMAGE && secrets.ALIYUN_NODE_IMAGE || 'node:20-alpine' }}
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,12 +25,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{ env.REGISTRY_URL }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY_PASSWORD }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v5
@@ -32,7 +38,9 @@ jobs:
           context: .
           file: Dockerfile.backend
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/resume-backend:latest
+          tags: ${{ env.BACKEND_IMAGE }}
+          build-args: |
+            PYTHON_BASE_IMAGE=${{ env.PYTHON_BASE_IMAGE }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
@@ -40,5 +48,7 @@ jobs:
           context: .
           file: Dockerfile.frontend
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/resume-frontend:latest
+          tags: ${{ env.FRONTEND_IMAGE }}
+          build-args: |
+            NODE_BASE_IMAGE=${{ env.NODE_BASE_IMAGE }}
 
