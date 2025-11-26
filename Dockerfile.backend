@@ -1,4 +1,4 @@
-ARG PYTHON_BASE_IMAGE=swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/python:3.13-slim-bullseye
+ARG PYTHON_BASE_IMAGE=docker.io/library/python:3.13-slim-bullseye
 FROM ${PYTHON_BASE_IMAGE}
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
