@@ -135,6 +135,34 @@ npm run dev
 
 CI 构建出的镜像可以直接在生产环境拉取，并在 `docker-compose.yml` 中用 `image` 替代 `build`（也可在外部部署脚本里用 `docker pull` + `docker run`）。
 
+### 使用预打包镜像的一键部署
+
+如果你已经通过 CI 构建并推送了镜像，可以使用 `docker-compose.prod.yml` 直接运行：
+
+1. 把镜像地址写入环境变量（可在项目根目录新建 `.env.prod`）：
+   ```
+   BACKEND_IMAGE=registry.cn-hangzhou.aliyuncs.com/resume-team/resume-backend:latest
+   FRONTEND_IMAGE=registry.cn-hangzhou.aliyuncs.com/resume-team/resume-frontend:latest
+   ```
+2. 运行：
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+   ```
+
+- `backend` 使用已有镜像，映射 5000 端口，并通过命名卷保存 `/app/uploads` 和 `/app/resume_app.db`，不会在宿主出现单个数据库文件，方便多个环境复用。
+- `frontend` 通过 `VITE_BACKEND_URL` 连接 `backend`（容器内部 DNS），默认指向 `http://backend:5000`。
+- 需要时可在 `.env.prod` 里把 `VITE_BACKEND_URL` 改成公网地址，并在 `docker compose` 里加上 `ports` 或 `nginx` 反向代理。
+- 如果前端域名不是 localhost，请同时在 `.env.prod`（或宿主环境变量）中设置：
+  ```
+  ALLOWED_ORIGINS=https://resume.292450.xyz
+  ```
+  后端将根据逗号分隔的清单为 `/preview` 等接口附加 `Access-Control-Allow-Origin` 头，不设置则默认仅允许 `http://localhost:3000` 和 `http://localhost:5173`。
+
+要停止：
+```
+docker compose -f docker-compose.prod.yml down
+```
+
 ## API 接口
 
 ### 主要接口
