@@ -31,10 +31,6 @@ export default defineConfig({
       '/upload-text': {
         target: 'http://localhost:5000',
         changeOrigin: true
-      },
-      '/candidates': {
-        target: 'http://localhost:5000',
-        changeOrigin: true
       }
     }
   }
