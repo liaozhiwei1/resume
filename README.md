@@ -113,11 +113,12 @@ npm run dev
    ```
    如果修改了代码或依赖后需要强制重建，添加 `--build` 参数。
 
-5. 可选：将 `.env` 中的 `VITE_BACKEND_URL` 设置为外部可访问地址，例如：
+5. 如果你在 `resume.292450.xyz` / `resume-backend.292450.xyz` 等域名下部署，请在 `.env` 中配置：
    ```
-   VITE_BACKEND_URL=http://api.example.com
+   VITE_BACKEND_URL=https://resume-backend.292450.xyz
+   ALLOWED_ORIGINS=https://resume.292450.xyz
    ```
-   然后在 `docker compose up` 时使用 `docker compose --env-file .env up --build` 看 Docker Compose 文档。
+   然后用 `docker compose --env-file .env up --build` 启动，后端将允许来自 `resume.292450.xyz` 的跨域请求。
 
 ## 自动 CI/CD 镜像构建
 
@@ -157,6 +158,7 @@ CI 构建出的镜像可以直接在生产环境拉取，并在 `docker-compose.
   ALLOWED_ORIGINS=https://resume.292450.xyz
   ```
   后端将根据逗号分隔的清单为 `/preview` 等接口附加 `Access-Control-Allow-Origin` 头，不设置则默认仅允许 `http://localhost:3000` 和 `http://localhost:5173`。
+ - 你的 CI 镜像构建会推送到阿里云，生产部署时可以把 `docker-compose.prod.yml` 中的 `VITE_BACKEND_URL` 和 `ALLOWED_ORIGINS` 都设置为上述 `292450.xyz` 域名，使前后端通过 HTTPS 通信。
 
 要停止：
 ```

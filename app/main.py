@@ -6,7 +6,6 @@ from typing import List
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 # 设置标准输出编码为 UTF-8，避免 Windows 控制台编码问题
@@ -37,7 +36,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,https://resume.292450.xyz")
 allowed_origins = [
     origin.strip()
     for origin in allowed_origins_env.split(",")
