@@ -1,5 +1,6 @@
-// 开发环境使用代理，生产环境使用完整 URL
-const API_BASE_URL = import.meta.env.DEV ? '' : 'http://localhost:5000';
+// 开发环境默认通过 Vite 代理，生产环境可以根据环境变量定制后端地址
+const DEFAULT_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.DEV ? '' : DEFAULT_BACKEND_URL;
 
 /**
  * 预览简历解析结果（不保存）

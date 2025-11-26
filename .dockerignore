@@ -1,0 +1,9 @@
+node_modules
+resume-management/node_modules
+__pycache__
+*.pyc
+.git
+dist
+uploads
+*.db
+

@@ -86,6 +86,39 @@ npm run dev
 
 前端应用将在 `http://localhost:3000` 启动（或根据 vite.config.js 配置的端口）。
 
+### Docker Compose 一键部署
+
+1. 在项目根目录准备容器数据目录（如果你希望持久化数据）：
+   ```bash
+   mkdir -p app/uploads
+   touch app/resume_app.db
+   ```
+   `uploads` 用于保存已上传的简历文件，`resume_app.db` 是 SQLite 数据库文件。
+
+2. 构建并启动容器：
+   ```bash
+   docker compose up --build
+   ```
+   - `backend` 使用 `Dockerfile.backend`，自动安装 Python 依赖并运行 FastAPI（5000 端口）。
+   - `frontend` 使用 `Dockerfile.frontend`，构建 Vue 项目并通过 `serve` 提供静态站点（3000 端口）。
+   - 前端服务通过 `VITE_BACKEND_URL=http://backend:5000` 指向后端容器，Docker Compose 会自动解析。
+
+3. 打开浏览器访问：
+   - 前端：`http://localhost:3000`
+   - FastAPI 文档：`http://localhost:5000/docs`
+
+4. 关闭服务：
+   ```bash
+   docker compose down
+   ```
+   如果修改了代码或依赖后需要强制重建，添加 `--build` 参数。
+
+5. 可选：将 `.env` 中的 `VITE_BACKEND_URL` 设置为外部可访问地址，例如：
+   ```
+   VITE_BACKEND_URL=http://api.example.com
+   ```
+   然后在 `docker compose up` 时使用 `docker compose --env-file .env up --build` 看 Docker Compose 文档。
+
 ## API 接口
 
 ### 主要接口
