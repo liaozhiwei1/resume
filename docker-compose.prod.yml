@@ -2,18 +2,18 @@ version: "3.9"
 
 services:
   backend:
-    image: ${BACKEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/resume-team/resume-backend:latest}
+    image: registry.cn-hangzhou.aliyuncs.com/lzw_docker/resume:backend-laste
     ports:
       - "5000:5000"
     volumes:
-      - backend_uploads:/app/uploads
-      - backend_db:/app/resume_app.db
+      - /vol1/1000/docker/resume/backend_uploads:/app/uploads
+      - /vol1/1000/docker/resume/backend_db/resume_app.db:/app/resume_app.db
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-registry.cn-hangzhou.aliyuncs.com/resume-team/resume-frontend:latest}
+    image: registry.cn-hangzhou.aliyuncs.com/lzw_docker/resume:frontend-laste
     ports:
-      - "3000:3000"
+      - "3100:3000"
     environment:
       VITE_BACKEND_URL: http://backend:5000
     depends_on:
