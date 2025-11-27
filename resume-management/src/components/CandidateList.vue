@@ -36,8 +36,9 @@
       
       <el-select
           v-model="selectedTag"
-          placeholder="按标签筛选"
+          placeholder="按标签筛选（可输入搜索）"
           clearable
+          filterable
           class="tag-filter"
           @change="handleTagFilter"
       >
@@ -972,6 +973,10 @@ export default {
 
 .search-input {
   width: 250px;
+}
+
+.tag-filter {
+  width: 200px;
 }
 
 .degree-filter {

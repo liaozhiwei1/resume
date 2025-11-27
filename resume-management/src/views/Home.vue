@@ -142,13 +142,17 @@ export default {
 
     const loadStats = async () => {
       try {
-        const candidates = await fetchCandidates();
-        candidateCount.value = candidates.length;
+        // fetchCandidates 现在返回分页结构，需要获取 total
+        const response = await fetchCandidates(null, null, null, 1, 1);
+        candidateCount.value = response.total || 0;
         
         const tags = await fetchAllTags();
         tagCount.value = tags.length;
       } catch (e) {
         console.error('加载统计数据失败:', e);
+        // 如果出错，显示 0
+        candidateCount.value = 0;
+        tagCount.value = 0;
       }
     };
 
