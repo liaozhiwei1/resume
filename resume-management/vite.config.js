@@ -10,26 +10,32 @@ export default defineConfig({
     proxy: {
       '/upload': {
         target: 'https://resume-backend.292450.xyz',
+        // target: 'https://127.0.0.1:5000',
         changeOrigin: true
       },
       '/preview': {
         target: 'https://resume-backend.292450.xyz',
+        // target: 'https://127.0.0.1:5000',
         changeOrigin: true
       },
       '/save': {
         target: 'https://resume-backend.292450.xyz',
+        // target: 'https://127.0.0.1:5000',
         changeOrigin: true
       },
       '/candidates': {
         target: 'https://resume-backend.292450.xyz',
+        // target: 'https://127.0.0.1:5000',
         changeOrigin: true
       },
       '/tags': {
         target: 'https://resume-backend.292450.xyz',
+        // target: 'https://127.0.0.1:5000',
         changeOrigin: true
       },
       '/upload-text': {
         target: 'https://resume-backend.292450.xyz',
+        // target: 'https://127.0.0.1:5000',
         changeOrigin: true
       }
     }

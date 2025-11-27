@@ -7,6 +7,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 # 设置标准输出编码为 UTF-8，避免 Windows 控制台编码问题
 if sys.platform == 'win32':
@@ -26,6 +27,13 @@ try:
     migrate_add_tags_field()
 except Exception as e:
     print(f"数据库迁移警告: {e}")
+
+# 执行数据库迁移（添加 notes 字段）
+try:
+    from migrate_add_notes_field import migrate_add_notes_field
+    migrate_add_notes_field()
+except Exception as e:
+    print(f"数据库迁移警告（notes）: {e}")
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -373,9 +381,13 @@ def get_docx_html_preview(candidate_id: int, db: Session = Depends(get_db)):
 @app.get("/candidates", summary="获取候选人列表")
 def list_candidates(
     tag: str = None,
+    name: str = None,
+    degree: str = None,
+    page: int = 1,
+    page_size: int = 10,
     db: Session = Depends(get_db)
 ):
-    """获取候选人列表，支持按标签筛选"""
+    """获取候选人列表，支持按标签、姓名、学历筛选和分页"""
     query = db.query(Candidate)
     
     # 如果提供了标签参数，进行筛选
@@ -383,22 +395,49 @@ def list_candidates(
         tag_filter = f"%{tag.strip()}%"
         query = query.filter(Candidate.tags.like(tag_filter))
     
-    candidates: List[Candidate] = query.order_by(Candidate.id.desc()).all()
-    return [
-        {
-            "id": c.id,
-            "name": c.name,
-            "email": c.email,
-            "phone": c.phone,
-            "university": c.university,
-            "degree": c.degree,
-            "major": c.major,
-            "tags": c.tags or "",
-            "resume_original_name": c.resume_original_name,
-            "created_at": c.created_at,
-        }
-        for c in candidates
-    ]
+    # 如果提供了姓名参数，进行模糊搜索
+    if name and name.strip():
+        name_filter = f"%{name.strip()}%"
+        # 使用大小写不敏感的模糊搜索，并排除 NULL 值
+        # SQLite 的 LIKE 默认大小写不敏感，但使用 func.lower 更明确
+        query = query.filter(
+            Candidate.name.isnot(None),
+            func.lower(Candidate.name).like(func.lower(name_filter))
+        )
+    
+    # 如果提供了学历参数，进行精确匹配
+    if degree and degree.strip():
+        query = query.filter(Candidate.degree == degree.strip())
+    
+    # 获取总数
+    total = query.count()
+    
+    # 分页查询
+    offset = (page - 1) * page_size
+    candidates: List[Candidate] = query.order_by(Candidate.id.desc()).offset(offset).limit(page_size).all()
+    
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,  # 向上取整
+        "data": [
+            {
+                "id": c.id,
+                "name": c.name,
+                "email": c.email,
+                "phone": c.phone,
+                "university": c.university,
+                "degree": c.degree,
+                "major": c.major,
+                "tags": c.tags or "",
+                "notes": c.notes or "",
+                "resume_original_name": c.resume_original_name,
+                "created_at": c.created_at,
+            }
+            for c in candidates
+        ]
+    }
 
 
 @app.put("/candidates/{candidate_id}/tags", summary="更新候选人标签")
@@ -422,6 +461,28 @@ def update_candidate_tags(
     return {
         "id": candidate.id,
         "tags": candidate.tags or "",
+    }
+
+
+@app.put("/candidates/{candidate_id}/notes", summary="更新候选人备注")
+def update_candidate_notes(
+    candidate_id: int,
+    notes: str = Body(..., embed=True, description="备注信息"),
+    db: Session = Depends(get_db),
+):
+    """更新候选人的备注"""
+    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+    if not candidate:
+        raise HTTPException(status_code=404, detail="候选人不存在")
+    
+    candidate.notes = notes
+    
+    db.commit()
+    db.refresh(candidate)
+    
+    return {
+        "id": candidate.id,
+        "notes": candidate.notes or "",
     }
 
 

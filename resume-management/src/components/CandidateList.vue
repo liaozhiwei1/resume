@@ -16,19 +16,23 @@
     </template>
 
     <div class="toolbar">
-      <el-input
-          v-model="filter"
-          placeholder="搜索姓名、邮箱、专业..."
-          size="default"
-          clearable
-          class="search-input"
-          @clear="handleSearch"
-          @input="handleSearch"
-      >
-        <template #prefix>
-          <el-icon><Search /></el-icon>
-        </template>
-      </el-input>
+      <div class="search-group">
+        <span class="search-label">姓名：</span>
+        <el-input
+            v-model="filter"
+            placeholder="请输入姓名进行搜索"
+            size="default"
+            clearable
+            class="search-input"
+            @clear="handleSearch"
+            @input="handleSearch"
+            @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+      </div>
       
       <el-select
           v-model="selectedTag"
@@ -45,6 +49,20 @@
         />
       </el-select>
       
+      <el-select
+          v-model="selectedDegree"
+          placeholder="按学历筛选"
+          clearable
+          class="degree-filter"
+          @change="handleDegreeFilter"
+      >
+        <el-option label="博士" value="博士" />
+        <el-option label="硕士" value="硕士" />
+        <el-option label="本科" value="本科" />
+        <el-option label="大专" value="大专" />
+        <el-option label="中专" value="中专" />
+      </el-select>
+      
       <el-button 
           type="primary" 
           @click="loadCandidates" 
@@ -53,9 +71,17 @@
       >
         刷新
       </el-button>
+      <el-button 
+          type="info" 
+          @click="openColumnConfigDialog"
+      >
+        <el-icon><Tools /></el-icon>
+        列设置
+      </el-button>
     </div>
 
     <el-table
+        :key="configVersion"
         :data="paginatedCandidates"
         style="width: 100%"
         v-loading="loading"
@@ -65,13 +91,24 @@
         :row-class-name="tableRowClassName"
         class="candidate-table"
     >
-      <el-table-column prop="id" label="ID" width="70" align="center">
+      <el-table-column 
+          v-if="columnConfig.id.visible"
+          prop="id" 
+          label="ID" 
+          :width="columnConfig.id.width" 
+          align="center"
+      >
         <template #default="{ row }">
           <el-tag type="info" size="small">#{{ row.id }}</el-tag>
         </template>
       </el-table-column>
       
-      <el-table-column prop="name" label="姓名" width="120">
+      <el-table-column 
+          v-if="columnConfig.name.visible"
+          prop="name" 
+          label="姓名" 
+          :width="columnConfig.name.width"
+      >
         <template #default="{ row }">
           <div class="name-cell">
             <el-icon class="name-icon"><User /></el-icon>
@@ -80,7 +117,12 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="email" label="邮箱" min-width="180">
+      <el-table-column 
+          v-if="columnConfig.email.visible"
+          prop="email" 
+          label="邮箱" 
+          :min-width="columnConfig.email.width"
+      >
         <template #default="{ row }">
           <div v-if="row.email" class="email-cell">
             <el-icon><Message /></el-icon>
@@ -90,7 +132,12 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="phone" label="电话" width="130">
+      <el-table-column 
+          v-if="columnConfig.phone.visible"
+          prop="phone" 
+          label="电话" 
+          :width="columnConfig.phone.width"
+      >
         <template #default="{ row }">
           <div v-if="row.phone" class="phone-cell">
             <el-icon><Phone /></el-icon>
@@ -100,7 +147,12 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="university" label="毕业院校" min-width="150">
+      <el-table-column 
+          v-if="columnConfig.university.visible"
+          prop="university" 
+          label="毕业院校" 
+          :min-width="columnConfig.university.width"
+      >
         <template #default="{ row }">
           <div v-if="row.university" class="university-cell">
             <el-icon><School /></el-icon>
@@ -110,7 +162,13 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="degree" label="学历" width="100" align="center">
+      <el-table-column 
+          v-if="columnConfig.degree.visible"
+          prop="degree" 
+          label="学历" 
+          :width="columnConfig.degree.width" 
+          align="center"
+      >
         <template #default="{ row }">
           <el-tag v-if="row.degree" :type="getDegreeType(row.degree)" size="small">
             {{ row.degree }}
@@ -119,14 +177,24 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="major" label="专业" min-width="150">
+      <el-table-column 
+          v-if="columnConfig.major.visible"
+          prop="major" 
+          label="专业" 
+          :min-width="columnConfig.major.width"
+      >
         <template #default="{ row }">
           <span v-if="row.major">{{ row.major }}</span>
           <span v-else class="empty-text">-</span>
         </template>
       </el-table-column>
       
-      <el-table-column prop="tags" label="标签" min-width="200">
+      <el-table-column 
+          v-if="columnConfig.tags.visible"
+          prop="tags" 
+          label="标签" 
+          :min-width="columnConfig.tags.width"
+      >
         <template #default="{ row }">
           <div class="tags-cell">
             <el-tag
@@ -152,7 +220,39 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="created_at" label="上传时间" width="180" align="center">
+      <el-table-column 
+          v-if="columnConfig.notes.visible"
+          prop="notes" 
+          label="备注" 
+          :min-width="columnConfig.notes.width"
+      >
+        <template #default="{ row }">
+          <div class="notes-cell">
+            <span v-if="row.notes" class="notes-text" :title="row.notes">
+              {{ row.notes.length > 30 ? row.notes.substring(0, 30) + '...' : row.notes }}
+            </span>
+            <span v-else class="empty-text">-</span>
+            <el-button
+                text
+                type="primary"
+                size="small"
+                @click="openNotesDialog(row)"
+                class="edit-notes-btn"
+                title="编辑备注"
+            >
+              <el-icon><Edit /></el-icon>
+            </el-button>
+          </div>
+        </template>
+      </el-table-column>
+      
+      <el-table-column 
+          v-if="columnConfig.created_at.visible"
+          prop="created_at" 
+          label="上传时间" 
+          :width="columnConfig.created_at.width" 
+          align="center"
+      >
         <template #default="{ row }">
           <div class="time-cell">
             <el-icon><Clock /></el-icon>
@@ -199,11 +299,11 @@
       </el-table-column>
     </el-table>
 
-    <div v-if="filteredCandidates.length > pageSize" class="pagination-wrapper">
+    <div v-if="total > 0" class="pagination-wrapper">
       <el-pagination
           v-model:current-page="currentPage"
           :page-size="pageSize"
-          :total="filteredCandidates.length"
+          :total="total"
           layout="total, prev, pager, next, jumper"
           @current-change="handlePageChange"
       />
@@ -308,15 +408,69 @@
         <el-button type="primary" @click="saveTags" :loading="savingTags">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 备注编辑对话框 -->
+    <el-dialog
+        v-model="notesDialogVisible"
+        title="编辑备注"
+        width="600px"
+    >
+      <div class="notes-dialog-content">
+        <el-input
+            v-model="editingNotes"
+            type="textarea"
+            :rows="6"
+            placeholder="请输入备注信息..."
+            maxlength="500"
+            show-word-limit
+        />
+      </div>
+      <template #footer>
+        <el-button @click="notesDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveNotes" :loading="savingNotes">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 列配置对话框 -->
+    <el-dialog
+        v-model="columnConfigDialogVisible"
+        title="列设置"
+        width="500px"
+    >
+      <div class="column-config-content">
+        <p class="config-hint">勾选要显示的列，取消勾选隐藏列</p>
+        <el-checkbox-group v-model="visibleColumns" class="column-checkbox-group">
+          <el-checkbox 
+              v-for="(config, key) in columnConfig" 
+              :key="key"
+              :label="key"
+              class="column-checkbox"
+          >
+            {{ config.label }}
+          </el-checkbox>
+        </el-checkbox-group>
+        <el-button 
+            type="text" 
+            @click="resetColumnConfig"
+            class="reset-btn"
+        >
+          重置为默认
+        </el-button>
+      </div>
+      <template #footer>
+        <el-button @click="columnConfigDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveColumnConfig">保存</el-button>
+      </template>
+    </el-dialog>
   </el-card>
 </template>
 
 <script>
 import { ref, computed, onMounted } from "vue";
 import { 
-  User, Search, RefreshRight, Message, Phone, School, Clock, Plus, View, Download, Loading, Delete
+  User, Search, RefreshRight, Message, Phone, School, Clock, Plus, View, Download, Loading, Delete, Edit, Tools
 } from '@element-plus/icons-vue';
-import { fetchCandidates, updateCandidateTags, fetchAllTags, downloadResume, getDocxHtmlPreview, deleteCandidate } from "../api";
+import { fetchCandidates, updateCandidateTags, updateCandidateNotes, fetchAllTags, downloadResume, getDocxHtmlPreview, deleteCandidate } from "../api";
 import { ElMessageBox } from "element-plus";
 import { ElMessage } from "element-plus";
 import UploadResume from "./UploadResume.vue";
@@ -336,6 +490,8 @@ export default {
     Download,
     Loading,
     Delete,
+    Edit,
+    Tools,
     UploadResume
   },
   data() {
@@ -346,7 +502,9 @@ export default {
       currentPage: 1,
       pageSize: 10,
       selectedTag: null,  // 选中的标签筛选
+      selectedDegree: null,  // 选中的学历筛选
       allTags: [],  // 所有标签列表
+      searchTimer: null,  // 搜索防抖定时器
       tagDialogVisible: false,  // 标签编辑对话框
       editingCandidateId: null,  // 正在编辑的候选人ID
       editingTags: "",  // 正在编辑的标签
@@ -358,45 +516,161 @@ export default {
       previewLoading: false,  // 预览加载中
       previewError: "",  // 预览错误
       previewCandidateId: null,  // 正在预览的候选人ID
-      previewHtmlContent: ""  // DOCX 的 HTML 预览内容
+      previewHtmlContent: "",  // DOCX 的 HTML 预览内容
+      notesDialogVisible: false,  // 备注编辑对话框
+      editingCandidateIdForNotes: null,  // 正在编辑备注的候选人ID
+      editingNotes: "",  // 正在编辑的备注
+      savingNotes: false,  // 保存备注中
+      columnConfigDialogVisible: false,  // 列配置对话框
+      visibleColumns: [],  // 可见的列
+      configVersion: 0,  // 配置版本号，用于触发更新
+      total: 0,  // 总记录数（后端分页）
+      totalPages: 0  // 总页数（后端分页）
     };
   },
   computed: {
-    filteredCandidates() {
-      if (!this.filter.trim()) return this.candidates;
-      const key = this.filter.toLowerCase();
-      return this.candidates.filter((c) =>
-          [c.name, c.email, c.major, c.university].some((field) =>
-              (field || "").toLowerCase().includes(key)
-          )
-      );
+    // 列配置（默认配置）
+    defaultColumnConfig() {
+      return {
+        id: { label: 'ID', visible: true, width: 70 },
+        name: { label: '姓名', visible: true, width: 120 },
+        email: { label: '邮箱', visible: true, width: 180 },
+        phone: { label: '电话', visible: true, width: 130 },
+        university: { label: '毕业院校', visible: true, width: 150 },
+        degree: { label: '学历', visible: true, width: 100 },
+        major: { label: '专业', visible: true, width: 150 },
+        tags: { label: '标签', visible: true, width: 200 },
+        notes: { label: '备注', visible: true, width: 200 },
+        created_at: { label: '上传时间', visible: true, width: 180 }
+      };
+    },
+    // 列配置（从 localStorage 加载或使用默认值）
+    columnConfig() {
+      // 使用 configVersion 来触发响应式更新
+      const _ = this.configVersion;
+      
+      const config = { ...this.defaultColumnConfig };
+      const savedConfig = this.loadColumnConfig();
+      
+      if (savedConfig) {
+        // 更新可见状态
+        Object.keys(savedConfig).forEach(key => {
+          if (config[key]) {
+            config[key].visible = savedConfig[key].visible !== false;
+            if (savedConfig[key].width) {
+              config[key].width = savedConfig[key].width;
+            }
+          }
+        });
+      }
+      
+      return config;
     },
     paginatedCandidates() {
-      const start = (this.currentPage - 1) * this.pageSize;
-      const end = start + this.pageSize;
-      return this.filteredCandidates.slice(start, end);
+      // 后端已经完成搜索和筛选，直接返回数据
+      return this.candidates;
     }
   },
   watch: {
-    filter() {
-      this.currentPage = 1;
-    },
     selectedTag() {
       this.currentPage = 1;
+      // 标签变化时重新加载数据
+      this.loadCandidates();
+    },
+    selectedDegree() {
+      this.currentPage = 1;
+      // 学历变化时重新加载数据
+      this.loadCandidates();
+    },
+    configVersion() {
+      // 当配置版本号改变时，更新可见列列表
+      this.$nextTick(() => {
+        this.updateVisibleColumns();
+      });
     }
   },
   methods: {
+    // 加载列配置
+    loadColumnConfig() {
+      if (typeof window === 'undefined') return null;
+      try {
+        const saved = localStorage.getItem('candidate_table_columns');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch (e) {
+        console.error('加载列配置失败:', e);
+      }
+      return null;
+    },
+    // 保存列配置
+    saveColumnConfigToStorage(config) {
+      if (typeof window === 'undefined') return;
+      try {
+        localStorage.setItem('candidate_table_columns', JSON.stringify(config));
+      } catch (e) {
+        console.error('保存列配置失败:', e);
+      }
+    },
+    // 更新可见列列表
+    updateVisibleColumns() {
+      this.visibleColumns = Object.keys(this.columnConfig).filter(
+        key => this.columnConfig[key].visible
+      );
+    },
+    // 打开列配置对话框
+    openColumnConfigDialog() {
+      this.updateVisibleColumns();
+      this.columnConfigDialogVisible = true;
+    },
+    // 保存列配置
+    saveColumnConfig() {
+      const config = {};
+      Object.keys(this.defaultColumnConfig).forEach(key => {
+        config[key] = {
+          visible: this.visibleColumns.includes(key),
+          width: this.columnConfig[key].width || this.defaultColumnConfig[key].width
+        };
+      });
+      this.saveColumnConfigToStorage(config);
+      // 更新配置版本号，触发计算属性重新计算
+      this.configVersion++;
+      this.columnConfigDialogVisible = false;
+      ElMessage.success('列配置已保存');
+    },
+    // 重置列配置
+    resetColumnConfig() {
+      this.visibleColumns = Object.keys(this.defaultColumnConfig);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('candidate_table_columns');
+      }
+      // 更新配置版本号，触发计算属性重新计算
+      this.configVersion++;
+      ElMessage.success('已重置为默认配置');
+    },
     async loadCandidates() {
       this.loading = true;
       try {
-        this.candidates = await fetchCandidates(this.selectedTag);
+        // 传递姓名搜索和学历筛选参数
+        const nameSearch = this.filter.trim() || null;
+        const response = await fetchCandidates(
+          this.selectedTag, 
+          nameSearch, 
+          this.selectedDegree, 
+          this.currentPage, 
+          this.pageSize
+        );
+        // 后端返回分页结构：{ total, page, page_size, total_pages, data }
+        this.candidates = response.data || [];
+        this.total = response.total || 0;
+        this.totalPages = response.total_pages || 0;
+        
         await this.loadAllTags();
-        ElMessage.success({
-          message: `成功加载 ${this.candidates.length} 条候选人数据`,
-          duration: 2000
-        });
       } catch (e) {
         ElMessage.error(e.message || "加载失败");
+        this.candidates = [];
+        this.total = 0;
+        this.totalPages = 0;
       } finally {
         this.loading = false;
       }
@@ -451,12 +725,45 @@ export default {
         this.savingTags = false;
       }
     },
+    openNotesDialog(row) {
+      this.editingCandidateIdForNotes = row.id;
+      this.editingNotes = row.notes || "";
+      this.notesDialogVisible = true;
+    },
+    async saveNotes() {
+      if (!this.editingCandidateIdForNotes) return;
+      
+      this.savingNotes = true;
+      try {
+        await updateCandidateNotes(this.editingCandidateIdForNotes, this.editingNotes);
+        ElMessage.success("备注更新成功");
+        this.notesDialogVisible = false;
+        await this.loadCandidates();
+      } catch (e) {
+        ElMessage.error(e.message || "保存备注失败");
+      } finally {
+        this.savingNotes = false;
+      }
+    },
     handleSearch() {
-      // 通过 computed 中的 filteredCandidates 自动过滤
+      // 姓名搜索，使用防抖避免频繁请求
+      if (this.searchTimer) {
+        clearTimeout(this.searchTimer);
+      }
+      this.searchTimer = setTimeout(() => {
+        this.currentPage = 1;
+        this.loadCandidates();
+      }, 500); // 500ms 防抖
+    },
+    handleDegreeFilter() {
+      // 学历筛选变化时重新加载
       this.currentPage = 1;
+      this.loadCandidates();
     },
     handlePageChange(page) {
       this.currentPage = page;
+      // 切换页码时重新加载数据
+      this.loadCandidates();
     },
     handleUploaded() {
       // 上传成功后刷新列表
@@ -593,6 +900,14 @@ export default {
   },
   mounted() {
     this.loadCandidates();
+    // 初始化可见列列表
+    this.updateVisibleColumns();
+  },
+  beforeUnmount() {
+    // 清理定时器
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+    }
   }
 };
 </script>
@@ -643,9 +958,24 @@ export default {
   align-items: center;
 }
 
+.search-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-label {
+  font-size: 14px;
+  color: #606266;
+  white-space: nowrap;
+}
+
 .search-input {
-  flex: 1;
-  max-width: 400px;
+  width: 250px;
+}
+
+.degree-filter {
+  width: 150px;
 }
 
 .candidate-table {
@@ -710,7 +1040,30 @@ export default {
   min-height: auto;
 }
 
+.notes-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notes-text {
+  flex: 1;
+  color: #606266;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.edit-notes-btn {
+  padding: 0 4px;
+  min-height: auto;
+  flex-shrink: 0;
+}
+
 .tag-dialog-content {
+  padding: 10px 0;
+}
+
+.notes-dialog-content {
   padding: 10px 0;
 }
 
@@ -946,13 +1299,50 @@ export default {
   max-width: 60%;
 }
 
+.column-config-content {
+  padding: 10px 0;
+}
+
+.config-hint {
+  color: #909399;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.column-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.column-checkbox {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.column-checkbox:hover {
+  background-color: #f5f7fa;
+}
+
+.reset-btn {
+  margin-top: 20px;
+  color: #909399;
+}
+
 @media (max-width: 768px) {
   .toolbar {
     flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .search-group {
+    width: 100%;
   }
   
   .search-input {
-    max-width: 100%;
     width: 100%;
   }
   

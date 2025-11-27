@@ -24,4 +24,7 @@ class Candidate(Base):
     # 标签（逗号分隔的字符串，如："前端,React,3年经验"）
     tags = Column(String, nullable=True, default="")
 
+    # 备注
+    notes = Column(String, nullable=True, default="")
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())

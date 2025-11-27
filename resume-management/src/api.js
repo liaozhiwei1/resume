@@ -1,7 +1,7 @@
 // 开发环境默认通过 Vite 代理，生产环境可以根据环境变量定制后端地址
 const DEFAULT_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://resume-backend.292450.xyz';
+// const API_BASE_URL = 'http://127.0.0.1:5000';
 const API_BASE_URL = 'https://resume-backend.292450.xyz';
-
 /**
  * 预览简历解析结果（不保存）
  * @param {FormData} formData - 包含文件的 FormData 对象
@@ -65,17 +65,34 @@ export async function uploadResume(formData) {
 /**
  * 获取候选人列表
  * @param {string} tag - 可选的标签筛选参数
- * @returns {Promise<Array>} 候选人列表
+ * @param {string} name - 可选的姓名模糊搜索参数
+ * @param {string} degree - 可选的学历筛选参数
+ * @param {number} page - 页码，从1开始
+ * @param {number} pageSize - 每页数量
+ * @returns {Promise<Object>} 分页结果 { total, page, page_size, total_pages, data }
  */
-export async function fetchCandidates(tag = null) {
-  let url = `${API_BASE_URL}/candidates`;
+export async function fetchCandidates(tag = null, name = null, degree = null, page = 1, pageSize = 10) {
+  const params = new URLSearchParams();
   if (tag) {
-    url += `?tag=${encodeURIComponent(tag)}`;
+    params.append('tag', tag);
   }
+  if (name) {
+    params.append('name', name);
+  }
+  if (degree) {
+    params.append('degree', degree);
+  }
+  params.append('page', page.toString());
+  params.append('page_size', pageSize.toString());
 
+  const url = `${API_BASE_URL}/candidates?${params.toString()}`;
   const response = await fetch(url);
 
   if (!response.ok) {
+    if (response.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
     throw new Error('获取候选人列表失败');
   }
 
@@ -100,6 +117,29 @@ export async function updateCandidateTags(candidateId, tags) {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: '更新标签失败' }));
     throw new Error(error.detail || '更新标签失败');
+  }
+
+  return await response.json();
+}
+
+/**
+ * 更新候选人备注
+ * @param {number} candidateId - 候选人ID
+ * @param {string} notes - 备注内容
+ * @returns {Promise<Object>} 更新后的候选人信息
+ */
+export async function updateCandidateNotes(candidateId, notes) {
+  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/notes`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ notes }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: '更新备注失败' }));
+    throw new Error(error.detail || '更新备注失败');
   }
 
   return await response.json();
