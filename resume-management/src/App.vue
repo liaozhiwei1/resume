@@ -1,6 +1,8 @@
 <template>
   <el-container class="app-container">
-    <el-container class="body-container">
+    <!-- 登录页不显示布局 -->
+    <router-view v-if="isLoginPage" />
+    <el-container v-else class="body-container">
       <el-aside 
         class="sidebar" 
         :width="isCollapse ? '64px' : '240px'"
@@ -53,6 +55,21 @@
               </el-icon>
               <span class="page-title">{{ currentPageTitle }}</span>
             </div>
+            <div class="header-right">
+              <div class="user-info">
+                <el-icon class="user-icon"><User /></el-icon>
+                <span class="username">{{ username }}</span>
+              </div>
+              <el-button 
+                text 
+                type="danger" 
+                @click="handleLogout"
+                class="logout-btn"
+              >
+                <el-icon><Switch /></el-icon>
+                <span>退出登录</span>
+              </el-button>
+            </div>
           </div>
         </el-header>
         
@@ -67,9 +84,10 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { Document, HomeFilled, List, Menu } from '@element-plus/icons-vue';
+import { ElMessageBox, ElMessage } from 'element-plus';
+import { Document, HomeFilled, List, Menu, User, Switch } from '@element-plus/icons-vue';
 
 export default {
   name: 'App',
@@ -77,12 +95,25 @@ export default {
     Document,
     HomeFilled,
     List,
-    Menu
+    Menu,
+    User,
+    Switch
   },
   setup() {
     const router = useRouter();
     const route = useRoute();
     const isCollapse = ref(false);
+    const username = ref('');
+
+    // 从 localStorage 获取用户名
+    const loadUsername = () => {
+      const storedUsername = localStorage.getItem('username');
+      username.value = storedUsername || '未知用户';
+    };
+
+    const isLoginPage = computed(() => {
+      return route.path === '/login' || route.meta.hideLayout;
+    });
 
     const activeMenu = computed(() => {
       return route.path;
@@ -104,12 +135,51 @@ export default {
       router.push(index);
     };
 
+    const handleLogout = async () => {
+      try {
+        await ElMessageBox.confirm(
+          '确定要退出登录吗？',
+          '提示',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning',
+          }
+        );
+        
+        // 清除本地存储
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        localStorage.removeItem('token_expires_at');
+        
+        ElMessage.success('已退出登录');
+        
+        // 跳转到登录页
+        router.push('/login');
+      } catch {
+        // 用户取消，不做任何操作
+      }
+    };
+
+    // 组件挂载时加载用户名
+    onMounted(() => {
+      loadUsername();
+    });
+
+    // 监听路由变化，更新用户名（登录后）
+    router.afterEach(() => {
+      loadUsername();
+    });
+
     return {
       isCollapse,
+      isLoginPage,
       activeMenu,
       currentPageTitle,
+      username,
       toggleCollapse,
-      handleMenuSelect
+      handleMenuSelect,
+      handleLogout
     };
   }
 };
@@ -307,6 +377,38 @@ export default {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #606266;
+  font-size: 14px;
+}
+
+.user-icon {
+  font-size: 18px;
+  color: #409eff;
+}
+
+.username {
+  font-weight: 500;
+}
+
+.logout-btn {
+  padding: 8px 16px;
+}
+
+.logout-btn:hover {
+  background-color: rgba(245, 108, 108, 0.1);
 }
 
 .menu-icon {

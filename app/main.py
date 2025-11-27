@@ -16,8 +16,13 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from database import Base, engine, get_db
-from models import Candidate
+from models import Candidate, User
 from parser import parse_resume_file, parse_resume_text_cn, extract_docx_to_html
+from auth import (
+    verify_password, get_password_hash, create_access_token,
+    get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
+)
+from datetime import timedelta
 
 Base.metadata.create_all(bind=engine)
 
@@ -58,6 +63,128 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ==================== 认证相关接口 ====================
+
+from pydantic import BaseModel
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    username: str
+    expires_in: int
+
+@app.post("/api/auth/login", summary="用户登录", tags=["认证"])
+def login(login_data: LoginRequest, db: Session = Depends(get_db)):
+    """用户登录，返回 JWT token"""
+    user = db.query(User).filter(User.username == login_data.username).first()
+    
+    if not user or not verify_password(login_data.password, user.password_hash):
+        raise HTTPException(
+            status_code=401,
+            detail="用户名或密码错误"
+        )
+    
+    # 更新最后登录时间
+    from datetime import datetime
+    user.last_login = datetime.utcnow()
+    db.commit()
+    
+    # 创建 token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username, "user_id": user.id},
+        expires_delta=access_token_expires
+    )
+    
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        username=user.username,
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+
+
+@app.get("/api/auth/me", summary="获取当前用户信息", tags=["认证"])
+def get_me(current_user: User = Depends(get_current_user)):
+    """获取当前登录用户信息"""
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "created_at": current_user.created_at,
+        "last_login": current_user.last_login
+    }
+
+
+@app.post("/api/auth/register", summary="用户注册", tags=["认证"])
+def register(login_data: LoginRequest, db: Session = Depends(get_db)):
+    """注册新用户（仅用于初始化，生产环境建议移除或添加权限控制）"""
+    try:
+        # 验证输入
+        if not login_data.username or not login_data.username.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="用户名不能为空"
+            )
+        
+        if not login_data.password:
+            raise HTTPException(
+                status_code=400,
+                detail="密码不能为空"
+            )
+        
+        if len(login_data.password) < 6:
+            raise HTTPException(
+                status_code=400,
+                detail="密码长度不能少于6位"
+            )
+        
+        # 密码长度验证（可选，根据需求设置）
+        if len(login_data.password) > 200:
+            raise HTTPException(
+                status_code=400,
+                detail="密码长度不能超过200个字符"
+            )
+        
+        # 检查用户是否已存在
+        existing_user = db.query(User).filter(User.username == login_data.username.strip()).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=400,
+                detail="用户名已存在"
+            )
+        
+        # 创建新用户（明文存储密码）
+        password = get_password_hash(login_data.password)  # 直接返回密码，不加密
+        
+        new_user = User(
+            username=login_data.username.strip(),
+            password_hash=password  # 直接存储明文密码
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        
+        return {
+            "id": new_user.id,
+            "username": new_user.username,
+            "message": "注册成功"
+        }
+    except HTTPException:
+        # 重新抛出 HTTPException
+        raise
+    except Exception as e:
+        db.rollback()
+        error_msg = str(e).encode('utf-8', errors='replace').decode('utf-8')
+        raise HTTPException(
+            status_code=500,
+            detail=f"注册失败: {error_msg}"
+        )
 
 
 @app.get("/", include_in_schema=False)
@@ -142,6 +269,7 @@ async def preview_resume(
 async def save_candidate(
         parsed_data: dict = Body(...),
         db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user),
 ):
     """保存预览后的候选人信息"""
     try:
@@ -188,6 +316,7 @@ async def save_candidate(
 async def upload_resume(
         file: UploadFile = File(...),
         db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user),
 ):
     filename_lower = file.filename.lower()
     if not (filename_lower.endswith(".pdf") or filename_lower.endswith(".docx")):
@@ -385,7 +514,8 @@ def list_candidates(
     degree: str = None,
     page: int = 1,
     page_size: int = 10,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """获取候选人列表，支持按标签、姓名、学历筛选和分页"""
     query = db.query(Candidate)
@@ -445,6 +575,7 @@ def update_candidate_tags(
     candidate_id: int,
     tags: str = Body(..., embed=True, description="标签字符串，多个标签用逗号分隔"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """更新候选人的标签"""
     candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
@@ -469,6 +600,7 @@ def update_candidate_notes(
     candidate_id: int,
     notes: str = Body(..., embed=True, description="备注信息"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """更新候选人的备注"""
     candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
@@ -499,7 +631,11 @@ def get_all_tags(db: Session = Depends(get_db)):
 
 
 @app.delete("/candidates/{candidate_id}", summary="删除候选人")
-def delete_candidate(candidate_id: int, db: Session = Depends(get_db)):
+def delete_candidate(
+    candidate_id: int, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """删除候选人及其关联的简历文件"""
     candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
     if not candidate:

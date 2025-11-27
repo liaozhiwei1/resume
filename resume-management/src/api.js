@@ -2,14 +2,78 @@
 const DEFAULT_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://resume-backend.292450.xyz';
 // const API_BASE_URL = 'http://127.0.0.1:5000';
 const API_BASE_URL = 'https://resume-backend.292450.xyz';
+
+/**
+ * 获取认证 headers
+ */
+function getAuthHeaders() {
+  const token = localStorage.getItem('token');
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+/**
+ * 用户登录
+ * @param {string} username - 用户名
+ * @param {string} password - 密码
+ * @returns {Promise<Object>} 登录响应 { access_token, token_type, username, expires_in }
+ */
+export async function login(username, password) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username, password }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: '登录失败' }));
+    throw new Error(error.detail || '登录失败');
+  }
+
+  return await response.json();
+}
+
+/**
+ * 获取当前用户信息
+ * @returns {Promise<Object>} 用户信息
+ */
+export async function getCurrentUser() {
+  const headers = getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      // token 过期或无效，清除本地存储
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      localStorage.removeItem('token_expires_at');
+      window.location.href = '/login';
+      return;
+    }
+    throw new Error('获取用户信息失败');
+  }
+
+  return await response.json();
+}
+
 /**
  * 预览简历解析结果（不保存）
  * @param {FormData} formData - 包含文件的 FormData 对象
  * @returns {Promise<Object>} 解析结果预览
  */
 export async function previewResumeParse(formData) {
+  const headers = getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/preview`, {
     method: 'POST',
+    headers,
     body: formData,
   });
 
@@ -27,9 +91,11 @@ export async function previewResumeParse(formData) {
  * @returns {Promise<Object>} 保存后的候选人信息
  */
 export async function saveCandidate(data) {
+  const headers = getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/save`, {
     method: 'POST',
     headers: {
+      ...headers,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(data),
@@ -49,8 +115,10 @@ export async function saveCandidate(data) {
  * @returns {Promise<Object>} 解析后的候选人信息
  */
 export async function uploadResume(formData) {
+  const headers = getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/upload`, {
     method: 'POST',
+    headers,
     body: formData,
   });
 
@@ -72,6 +140,7 @@ export async function uploadResume(formData) {
  * @returns {Promise<Object>} 分页结果 { total, page, page_size, total_pages, data }
  */
 export async function fetchCandidates(tag = null, name = null, degree = null, page = 1, pageSize = 10) {
+  const headers = getAuthHeaders();
   const params = new URLSearchParams();
   if (tag) {
     params.append('tag', tag);
@@ -86,7 +155,9 @@ export async function fetchCandidates(tag = null, name = null, degree = null, pa
   params.append('page_size', pageSize.toString());
 
   const url = `${API_BASE_URL}/candidates?${params.toString()}`;
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers
+  });
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -106,9 +177,11 @@ export async function fetchCandidates(tag = null, name = null, degree = null, pa
  * @returns {Promise<Object>} 更新后的候选人信息
  */
 export async function updateCandidateTags(candidateId, tags) {
+  const headers = getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/tags`, {
     method: 'PUT',
     headers: {
+      ...headers,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ tags }),
@@ -129,9 +202,11 @@ export async function updateCandidateTags(candidateId, tags) {
  * @returns {Promise<Object>} 更新后的候选人信息
  */
 export async function updateCandidateNotes(candidateId, notes) {
+  const headers = getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/notes`, {
     method: 'PUT',
     headers: {
+      ...headers,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ notes }),
@@ -150,9 +225,16 @@ export async function updateCandidateNotes(candidateId, notes) {
  * @returns {Promise<Array>} 标签列表
  */
 export async function fetchAllTags() {
-  const response = await fetch(`${API_BASE_URL}/tags`);
+  const headers = getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/tags`, {
+    headers
+  });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
     throw new Error('获取标签列表失败');
   }
 
@@ -164,8 +246,14 @@ export async function fetchAllTags() {
  * @param {number} candidateId - 候选人ID
  */
 export function downloadResume(candidateId) {
+  const token = localStorage.getItem('token');
   const url = `${API_BASE_URL}/candidates/${candidateId}/resume/download`;
-  window.open(url, '_blank');
+  if (token) {
+    // 使用带 token 的 URL（如果后端支持）
+    window.open(`${url}?token=${token}`, '_blank');
+  } else {
+    window.open(url, '_blank');
+  }
 }
 
 /**
@@ -174,7 +262,10 @@ export function downloadResume(candidateId) {
  * @returns {Promise<Object>} HTML 预览内容
  */
 export async function getDocxHtmlPreview(candidateId) {
-  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/resume/preview-html`);
+  const headers = getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/resume/preview-html`, {
+    headers
+  });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: '获取预览失败' }));
@@ -190,11 +281,17 @@ export async function getDocxHtmlPreview(candidateId) {
  * @returns {Promise<Object>} 删除结果
  */
 export async function deleteCandidate(candidateId) {
+  const headers = getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}`, {
     method: 'DELETE',
+    headers
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
     const error = await response.json().catch(() => ({ detail: '删除失败' }));
     throw new Error(error.detail || '删除失败');
   }
